@@ -5,7 +5,7 @@ import { countSolved, puzzleLog } from '../engine/progress';
 import type { Progress } from '../engine/progress';
 import { Icon } from './Icon';
 
-function WindowDialog({ title, icon, onClose, children }: {
+export function WindowDialog({ title, icon, onClose, children }: {
   title: string;
   icon: IconName;
   onClose: () => void;
@@ -16,7 +16,10 @@ function WindowDialog({ title, icon, onClose, children }: {
   useEffect(() => {
     if (ref.current && !ref.current.open) ref.current.showModal();
   }, []);
-  const close = () => ref.current?.close();
+  function close() {
+    ref.current?.close();
+    onClose();
+  }
   return (
     <dialog className="window-dialog" ref={ref} aria-labelledby={id} onClose={onClose}>
       <div className="dialog-heading">
@@ -28,10 +31,11 @@ function WindowDialog({ title, icon, onClose, children }: {
   );
 }
 
-export function Notebook({ sections, selectedId, progress, onNote, onClose }: {
+export function Notebook({ sections, selectedId, progress, archives, onNote, onClose }: {
   sections: Chapter[];
   selectedId?: string;
   progress: Progress;
+  archives: Record<string, string>;
   onNote: (id: string, note: string) => void;
   onClose: () => void;
 }) {
@@ -56,6 +60,7 @@ export function Notebook({ sections, selectedId, progress, onNote, onClose }: {
                 {evidence.map(item => <li key={item.title}><strong>{item.title}</strong><p>{item.detail}</p></li>)}
               </ol>
             ) : <p className="empty-note">完成這個區域的第一步後，這裡會出現已核對的證據。</p>}
+            {archives[section.id] && <div className="lab-question"><Icon name="radio" size={19} /><p>{archives[section.id]}</p></div>}
             {evidence.length === section.puzzles.length && <div className="lab-question"><Icon name="hint" size={19} /><p>{section.labQuestion}</p></div>}
             <label className="field field-note">
               <span>我的算式與觀察</span>

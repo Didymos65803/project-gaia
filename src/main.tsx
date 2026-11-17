@@ -4,5 +4,6 @@ import '@fontsource-variable/instrument-sans';
 import '@fontsource/ibm-plex-mono/latin-500.css';
 import { App } from './App';
 import './styles.css';
+import './components/station/station.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);

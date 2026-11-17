@@ -192,12 +192,12 @@ function Decisions({ puzzle, selected, onChange }: { puzzle: DecisionPuzzle; sel
   );
 }
 
-function Assay({ puzzle, answer, onChange }: { puzzle: AssayPuzzle; answer: Extract<Answer, { kind: 'assay' }>; onChange: (answer: Answer) => void }) {
+function Assay({ puzzle, answer, onChange, fieldSamples }: { puzzle: AssayPuzzle; answer: Extract<Answer, { kind: 'assay' }>; onChange: (answer: Answer) => void; fieldSamples: boolean }) {
   const sample = puzzle.samples.find(item => item.id === answer.inspected.at(-1));
   return (
     <div className="instrument">
       <div className="instrument-heading"><Icon name="drop" /><h3>雙探針採樣台</h3></div>
-      <div className="sample-tray">
+      {!fieldSamples && <><div className="sample-tray">
         {puzzle.samples.map(item => (
           <button key={item.id} type="button" aria-pressed={item.id === sample?.id} className="button sample"
             onClick={() => onChange({ ...answer, inspected: [...answer.inspected.filter(id => id !== item.id), item.id] })}>
@@ -210,6 +210,7 @@ function Assay({ puzzle, answer, onChange }: { puzzle: AssayPuzzle; answer: Extr
         <div><strong>{sample ? sample.ph.toFixed(1) : '—'}</strong> pH</div>
         <div><strong>{sample ? sample.conductivity : '—'}</strong> mS/cm</div>
       </div>
+      </>}
       <DataTable table={{
         title: '量測紀錄',
         columns: ['樣本', 'pH', '導電度 (mS/cm)'],
@@ -310,7 +311,7 @@ function ControlPanel({ puzzle, values, onChange }: { puzzle: PanelPuzzle; value
   );
 }
 
-export function Instrument({ puzzle, answer, onChange }: { puzzle: Puzzle; answer: Answer; onChange: (answer: Answer) => void }) {
+export function Instrument({ puzzle, answer, onChange, fieldSamples = false }: { puzzle: Puzzle; answer: Answer; onChange: (answer: Answer) => void; fieldSamples?: boolean }) {
   if (puzzle.kind === 'numeric' && answer.kind === 'numeric') {
     return <NumberInputs fields={puzzle.fields} values={answer.values} onChange={values => onChange({ ...answer, values })} />;
   }
@@ -327,7 +328,7 @@ export function Instrument({ puzzle, answer, onChange }: { puzzle: Puzzle; answe
     return <Decisions puzzle={puzzle} selected={answer.selected} onChange={selected => onChange({ ...answer, selected })} />;
   }
   if (puzzle.kind === 'assay' && answer.kind === 'assay') {
-    return <Assay puzzle={puzzle} answer={answer} onChange={onChange} />;
+    return <Assay puzzle={puzzle} answer={answer} onChange={onChange} fieldSamples={fieldSamples} />;
   }
   if (puzzle.kind === 'circuit' && answer.kind === 'circuit') {
     return <Circuit puzzle={puzzle} cell={answer.cell} onChange={cell => onChange({ ...answer, cell })} />;
