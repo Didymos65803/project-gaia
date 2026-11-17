@@ -56,8 +56,8 @@ export const roomData: Record<string, StationRoom> = {
     ],
     conversation: [
       { speaker: 'player', text: '這要怎麼數？我連原子都看不見。' },
-      { speaker: 'npc', text: '把分子想成積木。H₂ 有兩塊氫積木，H₂O 則有兩塊氫和一塊氧。把兩杯模型裡的積木重新組，可以拼成水。' },
-      { speaker: 'npc', text: '反應式前面的數字像「拿幾個」。例如 2 H₂ 就有四塊氫。等下用這個方法讓左右兩邊的數量一樣。' },
+      { speaker: 'npc', text: '把分子想成積木。CO₂ 有一塊碳和兩塊氧。反應時，原子會從原本的分子換到新的分子裡。' },
+      { speaker: 'npc', text: '式子前面的數字像「拿幾個」。例如 2 CO₂ 就有兩塊碳和四塊氧。先數碳，再數氫，氧留到最後。' },
     ],
     record: {
       name: '隔壁水杯的紀錄',

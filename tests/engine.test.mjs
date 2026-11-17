@@ -55,26 +55,39 @@ test('numeric input handles decimal and full-width signs and rejects invalid not
   assert.equal(evaluate(withTolerance, { kind: 'numeric', values: ['3.11'] }).correct, false);
 });
 
-test('graphs validate the selected point and any extra numeric fields', () => {
-  const puzzle = byId['calibration-line'];
-  const solved = solutions[puzzle.id];
-  assert.equal(evaluate(puzzle, { ...solved, x: null }).correct, false);
-  assert.equal(evaluate(puzzle, { ...solved, x: 8 }).correct, false);
-  assert.equal(evaluate(puzzle, solved).correct, true);
-  const withField = { ...puzzle, fields: [{ label: '數值', unit: 'mA', answer: 4 }] };
-  assert.equal(evaluate(withField, { ...solved, values: ['9'] }).correct, false);
+test('each of the six charts requires the correct point and all numeric answers', () => {
+  const graphs = puzzles.filter(puzzle => puzzle.kind === 'graph');
+  assert.equal(graphs.length, 6);
+  for (const puzzle of graphs) {
+    const solved = solutions[puzzle.id];
+    const wrongPoint = puzzle.graph.points.find(point => point.x !== solved.x);
+    assert.equal(evaluate(puzzle, { ...solved, x: null }).correct, false, puzzle.id);
+    assert.equal(evaluate(puzzle, { ...solved, x: wrongPoint.x }).correct, false, puzzle.id);
+    assert.ok(puzzle.fields.length > 0, puzzle.id);
+    assert.equal(evaluate(puzzle, { ...solved, values: solved.values.slice(0, -1) }).correct, false, puzzle.id);
+    const wronglyCalculated = [...solved.values.slice(0, -1), '99'];
+    assert.equal(evaluate(puzzle, { ...solved, values: wronglyCalculated }).correct, false, puzzle.id);
+    assert.equal(evaluate(puzzle, solved).correct, true, puzzle.id);
+  }
 });
 
-test('chemical balance tests the conservation of each element and lowest integer ratio', () => {
+test('chemical balance checks all three atoms and rejects a doubled formula', () => {
   const puzzle = byId['balance-methane'];
   const keyed = [...puzzle.reactants, ...puzzle.products].map(item => item.coefficient);
-  const { atoms } = checkBalance(puzzle.reactants, puzzle.products, keyed);
-  assert.deepEqual(atoms, [{ element: 'H', left: 4, right: 4 }, { element: 'O', left: 2, right: 2 }]);
-  for (const coefficients of [[1, 1, 2], [0, 0, 0], [2, 1, 1.9], [4, 2, 4], [2, 1]]) {
+  const { atoms } = checkBalance(puzzle.reactants, puzzle.products, keyed, puzzle.maximumCoefficient);
+  assert.deepEqual(atoms, [
+    { element: 'C', left: 3, right: 3 },
+    { element: 'H', left: 8, right: 8 },
+    { element: 'O', left: 10, right: 10 },
+  ]);
+  for (const coefficients of [[1, 4, 3, 4], [0, 0, 0, 0], [1, 5, 3, 1.9], [1, 11, 3, 4], [1, 5, 3]]) {
     const feedback = evaluate(puzzle, { kind: 'balance', coefficients });
     assert.equal(feedback.correct, false);
     assert.ok(feedback.details.length > 0);
   }
+  const scaled = evaluate(puzzle, { kind: 'balance', coefficients: [2, 10, 6, 8] });
+  assert.equal(scaled.correct, false);
+  assert.match(scaled.details[0], /最大公因數/);
 });
 
 test('assay requires independently collecting four readings before classifying', () => {

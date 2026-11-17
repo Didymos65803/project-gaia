@@ -46,6 +46,7 @@ export type GraphPuzzle = Brief & {
     xLabel: string;
     yLabel: string;
     xTicks: number[];
+    xTickLabels?: Record<number, string>;
     yTicks: number[];
     points: GraphPoint[];
     pickLabel: string;

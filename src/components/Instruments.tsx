@@ -76,6 +76,7 @@ function Graph({ graph, selected, onSelect }: { graph: GraphPuzzle['graph']; sel
   const scale = (value: number, ticks: number[]) => 100 * (value - ticks[0]) / (ticks.at(-1)! - ticks[0] || 1);
   const x = (value: number) => scale(value, graph.xTicks);
   const y = (value: number) => scale(value, graph.yTicks);
+  const xTickLabel = (value: number) => graph.xTickLabels?.[value] ?? String(value);
   const picked = graph.points.find(point => point.x === selected);
   return (
     <figure className="graph">
@@ -83,7 +84,7 @@ function Graph({ graph, selected, onSelect }: { graph: GraphPuzzle['graph']; sel
       <p className="graph-y-name">{graph.yLabel}</p>
       <div className="plot">
         {graph.yTicks.map(tick => <div key={tick} className="plot-gridline" style={{ bottom: `${y(tick)}%` }}><span>{tick}</span></div>)}
-        {graph.xTicks.map(tick => <span key={tick} className="plot-x-tick" style={{ left: `${x(tick)}%` }}>{tick}</span>)}
+        {graph.xTicks.map(tick => <span key={tick} className="plot-x-tick" style={{ left: `${x(tick)}%` }}>{xTickLabel(tick)}</span>)}
         <svg className="plot-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <polyline points={graph.points.map(point => `${x(point.x)},${100 - y(point.y)}`).join(' ')} vectorEffect="non-scaling-stroke" />
           {picked && <path className="plot-guide" d={`M0 ${100 - y(picked.y)}H${x(picked.x)}V100`} vectorEffect="non-scaling-stroke" />}
@@ -94,9 +95,9 @@ function Graph({ graph, selected, onSelect }: { graph: GraphPuzzle['graph']; sel
             type="button"
             className="plot-point"
             style={{ left: `${x(point.x)}%`, bottom: `${y(point.y)}%` }}
-            aria-label={`${graph.xLabel} ${point.x}，${graph.yLabel} ${point.y}`}
+            aria-label={`${graph.xLabel} ${xTickLabel(point.x)}，${graph.yLabel} ${point.y}`}
             aria-pressed={selected === point.x}
-            title={`${point.x}，${point.y}`}
+            title={`${xTickLabel(point.x)}，${point.y}`}
             onClick={() => onSelect(point.x)}
           ><span /></button>
         ))}
@@ -104,7 +105,7 @@ function Graph({ graph, selected, onSelect }: { graph: GraphPuzzle['graph']; sel
       <p className="graph-x-name">{graph.xLabel}</p>
       <p className="plot-selection" aria-live="polite">
         <strong>{graph.pickLabel}</strong>
-        <span>{picked ? `已選：${graph.xLabel} ${picked.x} · ${graph.yLabel} ${picked.y}` : '點圖上的圓點，這裡就會顯示讀值。'}</span>
+        <span>{picked ? `已選 ${graph.xLabel} ${xTickLabel(picked.x)} · ${graph.yLabel} ${picked.y}` : '點圖上的圓點，這裡就會顯示讀值。'}</span>
       </p>
       <details className="plot-table">
         <summary>用資料表看數字</summary>
@@ -113,8 +114,8 @@ function Graph({ graph, selected, onSelect }: { graph: GraphPuzzle['graph']; sel
             <thead><tr><th scope="col">{graph.xLabel}</th><th scope="col">{graph.yLabel}</th><th scope="col">標記</th></tr></thead>
             <tbody>{graph.points.map(point => (
               <tr key={point.x}>
-                <th scope="row">{point.x}</th><td>{point.y}</td>
-                <td><button type="button" className="button small" aria-label={`標記 ${graph.xLabel} ${point.x}`} aria-pressed={selected === point.x} onClick={() => onSelect(point.x)}>{selected === point.x ? '已選' : '選取'}</button></td>
+                <th scope="row">{xTickLabel(point.x)}</th><td>{point.y}</td>
+                <td><button type="button" className="button small" aria-label={`標記 ${graph.xLabel} ${xTickLabel(point.x)}`} aria-pressed={selected === point.x} onClick={() => onSelect(point.x)}>{selected === point.x ? '已選' : '選取'}</button></td>
               </tr>
             ))}</tbody>
           </table>
@@ -319,7 +320,12 @@ export function Instrument({ puzzle, answer, onChange, fieldSamples = false }: {
   if (puzzle.kind === 'graph' && answer.kind === 'graph') {
     return <>
       <Graph graph={puzzle.graph} selected={answer.x} onSelect={x => onChange({ ...answer, x })} />
-      {puzzle.fields.length > 0 && <NumberInputs fields={puzzle.fields} values={answer.values} onChange={values => onChange({ ...answer, values })} />}
+      {puzzle.fields.length > 0 && (
+        <fieldset className="graph-answers">
+          <legend>填入讀值或計算結果</legend>
+          <NumberInputs fields={puzzle.fields} values={answer.values} onChange={values => onChange({ ...answer, values })} />
+        </fieldset>
+      )}
     </>;
   }
   if (puzzle.kind === 'balance' && answer.kind === 'balance') {
