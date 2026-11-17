@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Feedback, Puzzle } from '../data/types';
+import type { Answer, Feedback, Puzzle } from '../data/types';
 import { evaluate } from '../engine/evaluate';
 import { Icon } from './Icon';
 import { DataTable, initialAnswer, Instrument, instrumentNames } from './Instruments';
@@ -41,6 +41,11 @@ export function LabBench({ puzzle, solved, hints, inspected, onReturn, onAttempt
     setResult(next);
   }
 
+  function changeAnswer(next: Answer) {
+    setAnswer(next);
+    if (result && !result.correct) setResult(null);
+  }
+
   function replay() {
     setAnswer(startingAnswer());
     setResult(null);
@@ -53,11 +58,13 @@ export function LabBench({ puzzle, solved, hints, inspected, onReturn, onAttempt
       <header className="challenge-heading">
         <span className="challenge-tag">{instrumentNames[puzzle.kind]}</span>
         <h2 id="challenge-title" ref={exercise} tabIndex={-1}>{puzzle.title}</h2>
-        <div className="challenge-prompt">{puzzle.prompt.map(paragraph => <p key={paragraph}>{paragraph}</p>)}</div>
+        <div className="challenge-prompt">{puzzle.prompt.map((paragraph, index) => (
+          <p key={paragraph} className={index === puzzle.prompt.length - 1 ? 'bench-question' : undefined}>{paragraph}</p>
+        ))}</div>
       </header>
       {showInstrument && puzzle.table && <DataTable table={puzzle.table} />}
       <form className="challenge-form" aria-label={puzzle.title} onSubmit={submit}>
-        {showInstrument && <Instrument puzzle={puzzle} answer={answer} onChange={setAnswer} fieldSamples={Boolean(inspected)} />}
+        {showInstrument && <Instrument puzzle={puzzle} answer={answer} onChange={changeAnswer} fieldSamples={Boolean(inspected)} />}
         {showInstrument && hints > 0 && (
           <div className="hints" aria-live="polite">
             <strong><Icon name="hint" size={18} />已揭開的提示</strong>

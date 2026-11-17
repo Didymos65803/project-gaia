@@ -81,7 +81,10 @@ export function App() {
   }
 
   const notebookSection = report ? finale.id : expedition.position ? sectorAt(expedition.position)?.id : undefined;
-  const archives = Object.fromEntries(expedition.archives.map(id => [id, roomData[id].log]));
+  const archives = Object.fromEntries(expedition.archives.map(id => {
+    const { name, text, clue } = roomData[id].record;
+    return [id, { title: name, detail: `${text} ${clue}` }];
+  }));
 
   return (
     <>

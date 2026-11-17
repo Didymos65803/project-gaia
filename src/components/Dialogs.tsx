@@ -1,27 +1,32 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Chapter, IconName } from '../data/types';
+import type { Chapter, Evidence, IconName } from '../data/types';
 import { countSolved, puzzleLog } from '../engine/progress';
 import type { Progress } from '../engine/progress';
 import { Icon } from './Icon';
 
-export function WindowDialog({ title, icon, onClose, children }: {
+export function WindowDialog({ title, icon, className = '', onClose, children }: {
   title: string;
   icon: IconName;
+  className?: string;
   onClose: () => void;
   children: (close: () => void) => ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   useEffect(() => {
-    if (ref.current && !ref.current.open) ref.current.showModal();
+    const dialog = ref.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+      dialog.querySelector<HTMLButtonElement>('[data-dialog-advance]')?.focus();
+    }
   }, []);
   function close() {
     ref.current?.close();
     onClose();
   }
   return (
-    <dialog className="window-dialog" ref={ref} aria-labelledby={id} onClose={onClose}>
+    <dialog className={`window-dialog ${className}`} ref={ref} aria-labelledby={id} onClose={onClose}>
       <div className="dialog-heading">
         <h2 id={id}><Icon name={icon} size={25} />{title}</h2>
         <button type="button" className="button icon-button" aria-label="關閉視窗" onClick={close}><Icon name="close" /></button>
@@ -35,7 +40,7 @@ export function Notebook({ sections, selectedId, progress, archives, onNote, onC
   sections: Chapter[];
   selectedId?: string;
   progress: Progress;
-  archives: Record<string, string>;
+  archives: Record<string, Evidence>;
   onNote: (id: string, note: string) => void;
   onClose: () => void;
 }) {
@@ -60,7 +65,7 @@ export function Notebook({ sections, selectedId, progress, archives, onNote, onC
                 {evidence.map(item => <li key={item.title}><strong>{item.title}</strong><p>{item.detail}</p></li>)}
               </ol>
             ) : <p className="empty-note">完成這個區域的第一步後，這裡會出現已核對的證據。</p>}
-            {archives[section.id] && <div className="lab-question"><Icon name="radio" size={19} /><p>{archives[section.id]}</p></div>}
+            {archives[section.id] && <div className="lab-question"><Icon name="radio" size={19} /><p><strong>{archives[section.id].title}</strong><br />{archives[section.id].detail}</p></div>}
             {evidence.length === section.puzzles.length && <div className="lab-question"><Icon name="hint" size={19} /><p>{section.labQuestion}</p></div>}
             <label className="field field-note">
               <span>我的算式與觀察</span>

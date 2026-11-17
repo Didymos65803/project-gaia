@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { chapters } from '../src/data/chapters.ts';
 import { finale } from '../src/data/finale.ts';
-import { batteryAnswer, changeSocket, cycleValue, fieldTasks, freshField, readField, timingDials } from '../src/data/field.ts';
+import { roomData } from '../src/data/station.ts';
+import { batteryAnswer, changeSocket, cycleValue, fieldTasks, freshField, readField } from '../src/data/field.ts';
 import { evaluate } from '../src/engine/evaluate.ts';
 import { collectCore, decodeExpedition, freshExpedition, openSectionIds, restoreSector } from '../src/engine/expedition.ts';
 import { doorApproach, findPath, local, makeWalkable, sectors, segmentClear, spawn } from '../src/engine/map.ts';
@@ -75,13 +76,8 @@ test('the physical forks and dials use the same verified answers as the science 
       }
     }
   }
-  const numbers = timingDials.map(({ values }, index) => {
-    const starting = values[0];
-    const adjusted = cycleValue(values, starting);
-    assert.equal(String(adjusted), solutions['packet-time'].values[index]);
-    return String(adjusted);
-  });
-  assert.equal(evaluate(puzzles['packet-time'], { kind: 'numeric', values: numbers }).correct, true);
+  assert.equal(cycleValue([1, 2, 3], 1), 2);
+  assert.equal(cycleValue([1, 2, 3], 3), 1);
 });
 
 test('physical battery assembly supports reverse polarity and safe swaps without duplicating parts', () => {
@@ -114,7 +110,30 @@ test('scans and valid dial positions reload, unknown object IDs and invalid sett
   assert.deepEqual(loaded.field.scanned, ['b', 'd']);
   assert.deepEqual(loaded.position, expedition.position);
   const panel = puzzles['final-dispatch'];
-  const restored = readField({ ...freshField(panel), operated: ['dose', 'different'], controls: { dose: 4, pump: 20, drift: 2 } }, panel);
-  assert.deepEqual(restored.controls, { dose: 4, pump: 2, light: 3 });
+  const restored = readField({ ...freshField(panel), operated: ['dose', 'different'], controls: { dose: 2, pump: 20, drift: 2 } }, panel);
+  assert.deepEqual(restored.controls, { dose: 2, pump: 1, light: 1 });
   assert.deepEqual(restored.operated, ['dose']);
+});
+
+test('every room has arrival scenes, player dialogue and an explained pickup clue', () => {
+  for (const chapter of sections) {
+    const room = roomData[chapter.id];
+    assert.ok(room.arrival.length >= 2, chapter.id);
+    assert.ok(room.conversation.some(line => line.speaker === 'player'));
+    assert.ok(room.record.name && room.record.text && room.record.clue);
+    assert.equal(room.devices.length, chapter.puzzles.length);
+  }
+});
+
+test('first entry scenes are tracked separately from previous saves and room progress', () => {
+  const progress = freshProgress();
+  const old = { ...progress, expedition: { ...freshExpedition(), briefed: ['gateway'] } };
+  delete old.expedition.introduced;
+  const loaded = decodeExpedition(JSON.stringify(old), progress, sections);
+  assert.deepEqual(loaded.briefed, ['gateway']);
+  assert.deepEqual(loaded.introduced, []);
+  const returned = decodeExpedition(JSON.stringify({
+    ...progress, expedition: { ...loaded, introduced: ['gateway', 'unknown', 'gateway'] },
+  }), progress, sections);
+  assert.deepEqual(returned.introduced, ['gateway']);
 });

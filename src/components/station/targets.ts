@@ -1,6 +1,6 @@
 import type { Chapter, Puzzle } from '../../data/types';
 import type { FieldState, FieldTask, Part, Socket } from '../../data/field';
-import { parts, slots, timingDials } from '../../data/field';
+import { parts, slots } from '../../data/field';
 import { roomData } from '../../data/station';
 import type { Expedition } from '../../engine/expedition';
 import { doorApproach, local } from '../../engine/map';
@@ -52,7 +52,7 @@ export function createTargets(
   const solved = countSolved(progress, chapter);
   const briefed = expedition.briefed.includes(chapter.id);
   add('brief', chapter.character.name, '交談', place(67, 192), chapter.character.initials === 'G' ? 'robot' : 'crew', { type: 'brief' });
-  if (!expedition.archives.includes(chapter.id)) add('archive', '失聯錄音', '拾取紀錄', place(40, 98), 'record', { type: 'read' });
+  if (!expedition.archives.includes(chapter.id)) add('archive', info.record.name, '拾取線索', place(40, 98), 'record', { type: 'read' });
 
   if (expedition.powered.includes(chapter.id)) {
     for (const [index, puzzle] of chapter.puzzles.entries()) {
@@ -86,16 +86,11 @@ export function createTargets(
   }
 
   if (task.mode === 'route') {
-    task.choices.forEach((choice, i) => add(`route-${i}`, choice.label, '啟動分流', place(96 + 99 * i, 130), 'valve', { type: 'route', option: i }));
-  }
-  if (task.mode === 'timing') {
-    timingDials.forEach((dial, i) => add(dial.id, `${dial.label} · ${field.controls[dial.id]}${dial.id === 'micros' ? ' μs' : ''}`, '切換讀值',
-      place(98 + 96 * i, 122), 'valve', { type: 'control', key: dial.id }));
-  }
-  if (task.mode === 'heat') {
-    ['A', 'B'].forEach((tank, i) => {
-      const setting = field.controls[tank];
-      add(tank, `${tank} 槽 · ${setting === 1 ? '放熱' : setting === -1 ? '吸熱' : '未判讀'}`, '切換熱流', place(119 + 129 * i, 122), 'valve', { type: 'control', key: tank });
+    const spacing = 108;
+    const left = Math.round((sector.rect.w - (task.choices.length - 1) * spacing) / 2);
+    task.choices.forEach((choice, i) => {
+      add(`route-${i}`, choice.label, '選這個', place(left + spacing * i, 130),
+        puzzle.id === 'packet-time' ? 'record' : 'valve', { type: 'route', option: i });
     });
   }
   if (task.mode === 'samples' && puzzle.kind === 'assay') {

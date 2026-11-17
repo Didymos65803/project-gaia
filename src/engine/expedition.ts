@@ -6,6 +6,7 @@ import { countSolved } from './progress.ts';
 import type { Progress } from './progress.ts';
 
 export type Expedition = {
+  introduced: string[];
   briefed: string[];
   powered: string[];
   archives: string[];
@@ -15,7 +16,7 @@ export type Expedition = {
 };
 
 export function freshExpedition(): Expedition {
-  return { briefed: [], powered: [], archives: [], core: null, field: null, position: null };
+  return { introduced: [], briefed: [], powered: [], archives: [], core: null, field: null, position: null };
 }
 
 export function decodeExpedition(raw: string | null, progress: Progress, sections: Chapter[]): Expedition {
@@ -34,6 +35,7 @@ export function decodeExpedition(raw: string | null, progress: Progress, section
     return validated;
   }
   const ids = sections.map(section => section.id);
+  validated.introduced = ids.filter(id => Array.isArray(saved.introduced) && saved.introduced.includes(id));
   validated.briefed = ids.filter(id => Array.isArray(saved.briefed) && saved.briefed.includes(id));
   validated.powered = complete.filter(id => saved.powered?.includes(id));
   validated.archives = ids.filter(id => Array.isArray(saved.archives) && saved.archives.includes(id));

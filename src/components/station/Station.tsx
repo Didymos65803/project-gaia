@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, MouseEvent } from 'react';
-import { batteryAnswer, changeSocket, controlSpec, cycleValue, fieldTasks, freshField, parts, timingDials } from '../../data/field';
+import { batteryAnswer, changeSocket, controlSpec, cycleValue, fieldTasks, freshField, partClues, parts } from '../../data/field';
 import type { FieldState } from '../../data/field';
 import { roomData } from '../../data/station';
 import type { Answer, Chapter, Feedback, Puzzle } from '../../data/types';
 import { evaluate, meetsTarget } from '../../engine/evaluate';
 import { collectCore, restoreSector } from '../../engine/expedition';
 import type { Expedition } from '../../engine/expedition';
-import { distance, doorApproach, makeWalkable, sectorAt, sectors, spawn } from '../../engine/map';
+import { distance, door, doorApproach, makeWalkable, sectorAt, sectors, spawn } from '../../engine/map';
 import type { Point } from '../../engine/map';
 import { panelReadings } from '../../engine/models';
 import { countSolved, currentPuzzle, puzzleLog } from '../../engine/progress';
@@ -18,11 +18,13 @@ import { LabBench } from '../LabBench';
 import { ExpeditionPanel, Minimap } from './ExpeditionPanel';
 import type { FieldMessage } from './ExpeditionPanel';
 import { DeviceArt, StationArt, Suit } from './StationArt';
+import { storyIntroduction, StoryDialog } from './StoryDialog';
+import type { StoryScene } from './StoryDialog';
 import { createTargets } from './targets';
 import type { Target } from './targets';
 import { useWalker } from './useWalker';
 
-type Popup = { kind: 'brief' | 'restored'; chapter: Chapter } | { kind: 'bench'; puzzle: Puzzle; device: string; scanned?: string[] };
+type Popup = { kind: 'story'; scene: StoryScene } | { kind: 'bench'; puzzle: Puzzle; device: string; scanned?: string[] };
 type StationProps = {
   sections: Chapter[];
   progress: Progress;
@@ -61,12 +63,17 @@ export function Station({ sections, progress, expedition, open, locks, externalP
   const task = activePuzzle ? fieldTasks[activePuzzle.id] : undefined;
   const field = activePuzzle && task ? (draft?.puzzleId === activePuzzle.id ? draft : freshField(activePuzzle)) : undefined;
   const isBriefed = Boolean(active && expedition.briefed.includes(active.id));
-  const availableField = isBriefed && task && field;
+  const arriving = active && !expedition.introduced.includes(active.id);
+  const availableField = isBriefed && !arriving && task && field;
   const targetGroups = sectors.map((sector, index) => createTargets(sector, sections[index], progress, expedition, open.includes(sector.id),
     sector.id === active?.id ? task : undefined, sector.id === active?.id ? field : undefined));
   const targets = targetGroups.flatMap(group => group.targets);
   const preferredId = targetGroups[active ? sections.indexOf(active) : sections.length - 1]?.preferred;
-  const guide = targets.find(target => target.id === preferredId);
+  const entrance = arriving ? sectors.find(sector => sector.id === active.id) : undefined;
+  const gate = entrance ? door(entrance) : undefined;
+  const guide = entrance && gate
+    ? { label: roomData[entrance.id].name, approach: { x: gate.x, y: gate.y + (entrance.northDoor ? 27 : -27) } }
+    : targets.find(target => target.id === preferredId);
   const paused = externalPause || Boolean(popup);
 
   function near(point: Point) {
@@ -84,6 +91,11 @@ export function Station({ sections, progress, expedition, open, locks, externalP
 
   function show(title: string, detail: string, tone: FieldMessage['tone'] = 'info') {
     setMessage({ title, detail, tone });
+  }
+
+  function tell(scene: StoryScene) {
+    setMessage(null);
+    setPopup({ kind: 'story', scene });
   }
 
   function finishWorldPuzzle(puzzle: Puzzle, result: Feedback, consequence?: string) {
@@ -107,21 +119,44 @@ export function Station({ sections, progress, expedition, open, locks, externalP
           locks.includes(chapter.id) ? '這一區會在課程開放後才能進入。' : '先修好前一區並裝回電源核心，走廊會打開這扇門。', 'retry');
         return;
       case 'brief':
-        setPopup({ kind: 'brief', chapter });
+        tell({
+          chapter, title: `與 ${chapter.character.name} 交談`, icon: 'radio',
+          lines: [...roomData[chapter.id].conversation, { speaker: 'npc', text: chapter.briefing }],
+          finishLabel: '開始調查', after: 'brief',
+        });
         return;
-      case 'read':
+      case 'read': {
+        const record = roomData[chapter.id].record;
         onExpedition(previous => previous.archives.includes(chapter.id) ? previous : { ...previous, archives: [...previous.archives, chapter.id] });
-        show('撿到失聯錄音', roomData[chapter.id].log, 'pass');
+        tell({
+          chapter, title: `找到${record.name}`, icon: 'notebook',
+          lines: [{ speaker: 'record', text: record.text }, { speaker: 'npc', text: record.clue }],
+          finishLabel: '收進科學筆記',
+        });
         return;
+      }
       case 'collect':
         onExpedition(previous => collectCore(previous, progress, chapter));
-        show('電源核心已拾取', '把發光的核心帶到這一區的電源插座。');
+        tell({
+          chapter, title: '拾起電源核心', icon: 'bolt',
+          lines: [
+            { speaker: 'player', text: '這顆核心還亮著！把它裝上之後，整座站都會有電嗎？' },
+            { speaker: 'npc', text: `它先讓${roomData[chapter.id].name}的設備自己供電。往右下方找發亮的電源插座，靠近按 E。` },
+          ],
+          finishLabel: '帶核心去插座',
+        });
         return;
-      case 'restore':
+      case 'restore': {
         onExpedition(previous => restoreSector(previous, chapter.id));
-        setMessage(null);
-        setPopup({ kind: 'restored', chapter });
+        const next = roomData[chapter.id].departure;
+        tell({
+          chapter, title: '區域通電！', icon: 'bolt',
+          lines: [{ speaker: 'npc', text: chapter.resolution }, ...(next ? [{ speaker: 'narrator' as const, text: next }] : [])],
+          finishLabel: chapter.id === 'finale' ? '查看結案報告' : '返回研究站',
+          after: chapter.id === 'finale' ? 'report' : undefined,
+        });
         return;
+      }
       case 'report':
         onReport();
         return;
@@ -153,30 +188,23 @@ export function Station({ sections, progress, expedition, open, locks, externalP
         if (task.mode === 'samples' && activePuzzle.kind === 'assay') {
           const sample = activePuzzle.samples[action.option];
           if (!field.scanned.includes(sample.id)) setDraft({ ...field, scanned: [...field.scanned, sample.id] });
-          show(`${sample.label} 探針讀值`, `pH ${sample.ph.toFixed(1)} · 導電度 ${sample.conductivity} mS/cm。數據已記在現場面板。`);
+          const reading = sample.ph < 7 ? '這個數字比 7 小，這瓶偏酸。' : sample.ph > 7 ? '這個數字比 7 大，這瓶偏鹼。' : 'pH 7 是中性。它會不會導電，要再看另一個讀值。';
+          show(`${sample.label} 探針讀值`, `pH ${sample.ph.toFixed(1)}。${reading} 導電度是 ${sample.conductivity} mS/cm，已記在面板。`);
         }
         if (task.mode === 'survey') {
           const id = String(action.option);
           const reading = task.readings[action.option];
           if (!field.scanned.includes(id)) setDraft({ ...field, scanned: [...field.scanned, id] });
-          show(reading.label, reading.result);
+          tell({
+            chapter, title: reading.label, icon: 'notebook',
+            lines: [{ speaker: 'record', text: reading.result }, { speaker: 'npc', text: reading.clue }],
+            finishLabel: '記下這份資料',
+          });
         }
         return;
       case 'control': {
         const key = action.key;
         const operated = [...new Set([...field.operated, key])];
-        if (task.mode === 'timing') {
-          const dial = timingDials.find(entry => entry.id === key);
-          if (!dial) return;
-          const value = cycleValue(dial.values, field.controls[key]);
-          setDraft({ ...field, operated, controls: { ...field.controls, [key]: value } });
-          show(dial.label, `已調到 ${value}${key === 'micros' ? ' μs' : ''}。`);
-        }
-        if (task.mode === 'heat') {
-          const value = cycleValue([1, -1], field.controls[key]);
-          setDraft({ ...field, operated, controls: { ...field.controls, [key]: value } });
-          show(`${key} 槽切換`, value === 1 ? '放熱：熱從反應區傳到外側的水。' : '吸熱：熱從外側的水傳進反應區。');
-        }
         if (task.mode === 'controls' && activePuzzle.kind === 'panel') {
           const control = controlSpec(activePuzzle, key);
           if (!control) return;
@@ -192,7 +220,8 @@ export function Station({ sections, progress, expedition, open, locks, externalP
           return;
         }
         setDraft({ ...field, carried: field.carried ? null : action.part });
-        show(field.carried ? '已放回' : '已拿起', parts[action.part]);
+        show(field.carried ? '已放回零件' : `拿起${parts[action.part]}`,
+          field.carried ? '可以再到另一個備料櫃拿取。' : partClues[action.part]);
         return;
       case 'socket': {
         const update = changeSocket(field, action.socket);
@@ -201,22 +230,8 @@ export function Station({ sections, progress, expedition, open, locks, externalP
         return;
       }
       case 'submit':
-        if (task.mode === 'timing') {
-          const { coefficient, exponent, micros } = field.controls;
-          evaluateWorld(activePuzzle, { kind: 'numeric', values: [String(coefficient), String(exponent), String(micros)] });
-        }
         if (task.mode === 'controls') evaluateWorld(activePuzzle, { kind: 'panel', values: field.controls });
         if (task.mode === 'battery') evaluateWorld(activePuzzle, batteryAnswer(field));
-        if (task.mode === 'heat') {
-          const { A, B } = field.controls;
-          if (A === 1 && B === -1) evaluateWorld(activePuzzle, { kind: 'decision', selected: ['a-release', 'b-absorb'] });
-          else finishWorldPuzzle(activePuzzle, {
-            correct: false, message: activePuzzle.retry, details: [
-              A === 1 ? '' : 'A 槽附近的水升溫了，表示水收到反應區傳來的熱。',
-              B === -1 ? '' : 'B 槽附近的水降溫了，表示水把熱傳給反應區。',
-            ].filter(Boolean),
-          });
-        }
         return;
     }
   }
@@ -234,12 +249,27 @@ export function Station({ sections, progress, expedition, open, locks, externalP
   });
   const closeTarget = near(walker.location);
   const here = sectorAt(walker.location);
+  const localChapter = here ? sections.find(chapter => chapter.id === here.id) : undefined;
+
+  useEffect(() => {
+    if (paused || !localChapter || !open.includes(localChapter.id) || expedition.introduced.includes(localChapter.id)) return;
+    onExpedition(previous => previous.introduced.includes(localChapter.id) ? previous : {
+      ...previous, introduced: [...previous.introduced, localChapter.id],
+    });
+    setMessage(null);
+    setPopup({ kind: 'story', scene: storyIntroduction(localChapter) });
+  }, [paused, localChapter, open, expedition.introduced, onExpedition]);
+
   const locationName = here ? roomData[here.id].name : '中央走廊';
   const areaToList = here && open.includes(here.id) ? here.id : active?.id;
   const listedTargets = targets.filter(target => target.areaId === areaToList && target.interaction.type !== 'blocked');
   const fromRoom = active ? `走向 ${roomData[active.id].name}` : '探索研究站';
   const objective = active
-    ? !isBriefed ? `找到 ${active.character.name}` : activePuzzle ? activePuzzle.title : expedition.core === active.id ? '裝回電源核心' : '拾取區域電源核心'
+    ? arriving
+      ? `走進${roomData[active.id].name}`
+      : !isBriefed
+        ? `找到 ${active.character.name}`
+        : activePuzzle?.title ?? (expedition.core === active.id ? '裝回電源核心' : '拾取區域電源核心')
     : open.includes('finale') ? '查看事故結案報告' : '等待課程開放';
   const done = sections.slice(0, -1).filter(chapter => expedition.powered.includes(chapter.id)).length;
   const readings = active?.id === 'greenhouse' && activePuzzle?.kind === 'panel' && field
@@ -249,7 +279,7 @@ export function Station({ sections, progress, expedition, open, locks, externalP
   const navigationTip = !here ? fromRoom : guide ? '跟著黃色驚嘆號找下一個目標。'
     : task?.mode === 'route' ? '走到對應的分流口就能測試。' : '可回到已通電的設備重新演練。';
 
-  function walkTo(target: Target) {
+  function walkTo(target: Pick<Target, 'label' | 'approach'>) {
     if (paused) return;
     walker.viewport.current?.focus({ preventScroll: true });
     if (!walker.travel(target.approach)) show('找不到路徑', '走到走廊或最近一扇門後再試。', 'retry');
@@ -279,7 +309,7 @@ export function Station({ sections, progress, expedition, open, locks, externalP
         <div><h1 id="page-heading" tabIndex={-1}>地球系統危機</h1><p>接住求救訊號，找出是誰關掉了整座研究站。</p></div>
         <div className="station-score">
           <span title="已接通的研究區"><Icon name="bolt" size={19}/><strong>{done}<small>/8</small></strong> <span>通電</span></span>
-          <span title="已尋獲的失聯錄音"><Icon name="radio" size={19}/><strong>{expedition.archives.length}<small>/9</small></strong> <span>錄音</span></span>
+          <span title="已尋獲的線索"><Icon name="radio" size={19}/><strong>{expedition.archives.length}<small>/9</small></strong> <span>線索</span></span>
         </div>
       </header>
       <div className="expedition-layout">
@@ -314,7 +344,7 @@ export function Station({ sections, progress, expedition, open, locks, externalP
             <div className="stage-hud"><i/>{locationName}</div>
             {expedition.core
               ? <div className="stage-core"><Icon name="bolt" size={16}/>已攜帶電源核心</div>
-              : !isBriefed && active && <div className="stage-core stage-objective">!　找到 {active.character.name}</div>}
+              : (!isBriefed || arriving) && active && <div className="stage-core stage-objective">!　{objective}</div>}
             {message && <div className={`stage-message ${message.tone}`} aria-hidden="true"><strong>{message.title}</strong><span>{message.detail}</span></div>}
             <div className="touch-pad" aria-label="觸控方向鍵">
               {(['up', 'left', 'down', 'right'] as const).map(direction => (
@@ -337,9 +367,11 @@ export function Station({ sections, progress, expedition, open, locks, externalP
           </div>
         </section>
         <aside className="expedition-side">
-          <ExpeditionPanel active={active} objective={objective} guide={guide} task={isBriefed ? task : undefined} puzzle={activePuzzle}
+          <ExpeditionPanel active={active} objective={objective} guide={guide} task={isBriefed && !arriving ? task : undefined} puzzle={activePuzzle}
             field={field} hints={activePuzzle ? puzzleLog(progress, activePuzzle.id).hints : 0}
-            devices={listedTargets} message={message} onWalk={walkTo} onHint={onHint} onDismiss={() => setMessage(null)}/>
+            devices={listedTargets} message={message} onWalk={walkTo} onHint={onHint}
+            onAreaStory={localChapter && open.includes(localChapter.id) ? () => tell(storyIntroduction(localChapter)) : undefined}
+            onDismiss={() => setMessage(null)}/>
           <Minimap open={open} expedition={expedition} activeId={active?.id} location={walker.location}/>
           <p className="station-tip">{navigationTip}</p>
         </aside>
@@ -349,45 +381,11 @@ export function Station({ sections, progress, expedition, open, locks, externalP
           inspected={popup.scanned} solved={puzzleLog(progress, popup.puzzle.id).solved}
           hints={puzzleLog(progress, popup.puzzle.id).hints} onAttempt={onAttempt} onHint={onHint} onReturn={close}/>}
       </WindowDialog>}
-      {popup && popup.kind !== 'bench' && <StoryDialog key={`${popup.kind}-${popup.chapter.id}`} chapter={popup.chapter}
-        restored={popup.kind === 'restored'} onAccept={() => acceptBrief(popup.chapter)} onClose={() => setPopup(null)}
-        onReport={popup.chapter.id === 'finale' && popup.kind === 'restored' ? onReport : undefined}/>}
+      {popup?.kind === 'story' && <StoryDialog key={popup.scene.title} scene={popup.scene}
+        onClose={() => setPopup(null)} onFinish={() => {
+          if (popup.scene.after === 'brief') acceptBrief(popup.scene.chapter);
+          if (popup.scene.after === 'report') onReport();
+        }}/>}
     </div>
-  );
-}
-
-function StoryDialog({ chapter, restored, onAccept, onClose, onReport }: {
-  chapter: Chapter;
-  restored: boolean;
-  onAccept: () => void;
-  onClose: () => void;
-  onReport?: () => void;
-}) {
-  const [line, setLine] = useState(0);
-  const speech = restored ? [chapter.resolution] : [roomData[chapter.id].opening, chapter.briefing];
-  return (
-    <WindowDialog title={restored ? '區域通電！' : `與 ${chapter.character.name} 交談`} icon={restored ? 'bolt' : 'radio'} onClose={onClose}>
-      {close => (
-        <div className="story-dialog">
-          <div className={`dialog-sprite ${restored ? 'energized' : ''}`}>
-            {restored ? <DeviceArt icon="core"/> : <Suit variant={chapter.character.initials === 'G' ? 'robot' : 'crew'}/>}
-          </div>
-          <div>
-            <strong>{restored ? roomData[chapter.id].name : chapter.character.name}</strong>
-            <p aria-live="polite">{speech[line]}</p>
-          </div>
-          <button type="button" className="button primary" onClick={() => {
-            if (line + 1 < speech.length) setLine(line + 1);
-            else {
-              if (!restored) onAccept();
-              close();
-              onReport?.();
-            }
-          }}>
-            {line + 1 < speech.length ? '繼續對話' : onReport ? '查看結案報告' : restored ? '返回研究站' : '開始調查'} <Icon name="arrow" size={19}/>
-          </button>
-        </div>
-      )}
-    </WindowDialog>
   );
 }

@@ -55,7 +55,7 @@ function NumberInputs({ fields, values, onChange }: {
           <span className="input-row">
             <input
               type="text"
-              inputMode="text"
+              inputMode="decimal"
               autoComplete="off"
               spellCheck={false}
               maxLength={40}
@@ -86,6 +86,7 @@ function Graph({ graph, selected, onSelect }: { graph: GraphPuzzle['graph']; sel
         {graph.xTicks.map(tick => <span key={tick} className="plot-x-tick" style={{ left: `${x(tick)}%` }}>{tick}</span>)}
         <svg className="plot-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <polyline points={graph.points.map(point => `${x(point.x)},${100 - y(point.y)}`).join(' ')} vectorEffect="non-scaling-stroke" />
+          {picked && <path className="plot-guide" d={`M0 ${100 - y(picked.y)}H${x(picked.x)}V100`} vectorEffect="non-scaling-stroke" />}
         </svg>
         {graph.points.map(point => (
           <button
@@ -103,10 +104,10 @@ function Graph({ graph, selected, onSelect }: { graph: GraphPuzzle['graph']; sel
       <p className="graph-x-name">{graph.xLabel}</p>
       <p className="plot-selection" aria-live="polite">
         <strong>{graph.pickLabel}</strong>
-        <span>{picked ? `已選：${graph.xLabel} ${picked.x} · ${graph.yLabel} ${picked.y}` : '點選圖上的一筆資料'}</span>
+        <span>{picked ? `已選：${graph.xLabel} ${picked.x} · ${graph.yLabel} ${picked.y}` : '點圖上的圓點，這裡就會顯示讀值。'}</span>
       </p>
       <details className="plot-table">
-        <summary>資料表</summary>
+        <summary>用資料表看數字</summary>
         <div className="table-scroll">
           <table aria-label={graph.title}>
             <thead><tr><th scope="col">{graph.xLabel}</th><th scope="col">{graph.yLabel}</th><th scope="col">標記</th></tr></thead>
@@ -124,7 +125,7 @@ function Graph({ graph, selected, onSelect }: { graph: GraphPuzzle['graph']; sel
 }
 
 function Balancer({ puzzle, values, onChange }: { puzzle: BalancePuzzle; values: number[]; onChange: (values: number[]) => void }) {
-  const numbers = Array.from({ length: 12 }, (_, index) => index + 1);
+  const numbers = Array.from({ length: puzzle.maximumCoefficient ?? 12 }, (_, index) => index + 1);
   const changeCoefficient = (index: number, coefficient: number) => onChange(values.map((value, i) => i === index ? coefficient : value));
   const drop = (event: DragEvent, index: number) => {
     event.preventDefault();
@@ -146,7 +147,7 @@ function Balancer({ puzzle, values, onChange }: { puzzle: BalancePuzzle; values:
       ))}
     </div>
   );
-  const balance = checkBalance(puzzle.reactants, puzzle.products, values);
+  const balance = checkBalance(puzzle.reactants, puzzle.products, values, puzzle.maximumCoefficient);
   return (
     <div className="instrument">
       <div className="instrument-heading"><Icon name="flask" /><h3>係數托盤</h3></div>
@@ -174,7 +175,7 @@ function Decisions({ puzzle, selected, onChange }: { puzzle: DecisionPuzzle; sel
   const id = useId();
   return (
     <fieldset className="choices">
-      <legend>選擇 {puzzle.select} 項並送出</legend>
+      <legend>{puzzle.select === 1 ? '點一個答案' : `選 ${puzzle.select} 個答案`}</legend>
       {puzzle.options.map(option => (
         <label className="choice" key={option.id}>
           <input
@@ -318,7 +319,7 @@ export function Instrument({ puzzle, answer, onChange, fieldSamples = false }: {
   if (puzzle.kind === 'graph' && answer.kind === 'graph') {
     return <>
       <Graph graph={puzzle.graph} selected={answer.x} onSelect={x => onChange({ ...answer, x })} />
-      <NumberInputs fields={puzzle.fields} values={answer.values} onChange={values => onChange({ ...answer, values })} />
+      {puzzle.fields.length > 0 && <NumberInputs fields={puzzle.fields} values={answer.values} onChange={values => onChange({ ...answer, values })} />}
     </>;
   }
   if (puzzle.kind === 'balance' && answer.kind === 'balance') {

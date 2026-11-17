@@ -2,87 +2,93 @@ import type { Answer, AssayPuzzle, PanelPuzzle, Puzzle } from './types.ts';
 
 type RouteChoice = { label: string; answer: Answer; consequence?: string };
 export type FieldTask =
-  | { mode: 'route'; summary: string; choices: RouteChoice[] }
-  | { mode: 'heat'; summary: string }
-  | { mode: 'timing'; summary: string }
-  | { mode: 'samples'; summary: string }
-  | { mode: 'battery'; summary: string }
-  | { mode: 'controls'; summary: string; presets: Record<string, number[]> }
-  | { mode: 'survey'; summary: string; readings: { label: string; result: string }[] };
+  | { mode: 'route'; action: string; choices: RouteChoice[] }
+  | { mode: 'samples'; action: string }
+  | { mode: 'battery'; action: string }
+  | { mode: 'controls'; action: string; presets: Record<string, number[]> }
+  | { mode: 'survey'; action: string; readings: { label: string; result: string; clue: string }[] };
 
-const numeric = (...values: number[]): Answer => ({ kind: 'numeric', values: values.map(String) });
-
-export const timingDials = [
-  { id: 'coefficient', label: '係數 a', values: [1, 7.2, 0.72, 72] },
-  { id: 'exponent', label: '指數 n', values: [-4, -5, -6] },
-  { id: 'micros', label: '微秒計', values: [7.2, 72, 720] },
-];
+const numeric = (value: number): Answer => ({ kind: 'numeric', values: [String(value)] });
+const decision = (id: string): Answer => ({ kind: 'decision', selected: [id] });
+const walkToChoice = '走到你選的標籤或按鈕旁，按 E 試試看。';
+const adjustDevice = '走到一台機器旁按 E 調設定。面板都達標後，到驗收台按 E。';
 
 export const fieldTasks: Partial<Record<string, FieldTask>> = {
   'packet-time': {
-    mode: 'timing',
-    summary: '掃描器讀到 0.000072 秒。走到三個旋鈕按 E，把資料以 a × 10ⁿ 秒和微秒兩種方式送回。科學記號要求 1 ≤ a < 10。1 秒＝1,000,000 μs。',
+    mode: 'route',
+    action: walkToChoice,
+    choices: [
+      { label: '3 × 10²', answer: numeric(2), consequence: '10² 是 100。3 × 100 = 300，備份盒有 3,000 筆。' },
+      { label: '3 × 10³', answer: numeric(3) },
+      { label: '3 × 10⁴', answer: numeric(4), consequence: '10⁴ 是 10,000。3 × 10,000 = 30,000，這張太大了。' },
+    ],
   },
   'archive-block': {
     mode: 'route',
-    summary: 'A 檔 72 筆，B 檔 180 筆。走到可讓兩份檔案都沒有餘數、而且區塊最長的分流口，按 E 讓封包通過。',
+    action: walkToChoice,
     choices: [
-      { label: '18 筆／塊', answer: numeric(2, 2, 1, 18), consequence: '封包都對齊了，但 18 還能再放大。用質因數分解比較兩份檔案共同的區塊。' },
-      { label: '24 筆／塊', answer: numeric(2, 2, 1, 24), consequence: 'A 檔能分成 3 塊。B 檔切成 7 塊後還剩 12 筆，分流口自動關回。' },
-      { label: '36 筆／塊', answer: numeric(2, 2, 1, 36) },
+      { label: '每疊 3 張', answer: numeric(3), consequence: '兩箱都分得完，不過還能把每疊變大。' },
+      { label: '每疊 4 張', answer: numeric(4), consequence: '12 張剛好分完，18 張會剩下 2 張。試試其他疊法。' },
+      { label: '每疊 6 張', answer: numeric(6) },
     ],
   },
   'solve-flow': {
     mode: 'route',
-    summary: '原始 A＋B = 18 L/min。讓 A 倍增後，2A＋B = 30 L/min。走到同時符合兩次測試的管線組合，按 E 啟動。',
+    action: '走到你算出的水量旁按 E，替 A 泵貼上標籤。',
     choices: [
-      { label: 'A 6・B 12', answer: numeric(6, 12), consequence: '原始總量是 18，但 A 倍增後只有 24 L/min。水壓到不了目標。' },
-      { label: 'A 12・B 6', answer: numeric(12, 6) },
-      { label: 'A 15・B 3', answer: numeric(15, 3), consequence: '原始總量是 18，但 A 倍增後達 33 L/min，超過測到的 30。' },
+      { label: 'A 泵 3 L/min', answer: numeric(3), consequence: '再多 3 公升的話，每分鐘會變成 11（8 + 3）。機器量到 13。' },
+      { label: 'A 泵 5 L/min', answer: numeric(5) },
+      { label: 'A 泵 6 L/min', answer: numeric(6), consequence: '再多 6 公升的話，每分鐘會變成 14（8 + 6）。機器量到 13。' },
     ],
   },
   'heat-witness': {
-    mode: 'heat',
-    summary: '外側的水從 22 °C 變為 A 槽 29 °C、B 槽 18 °C，空白槽維持 22 °C。走到兩槽切換放熱／吸熱，再到熱流驗收台測試。',
+    mode: 'route',
+    action: '看水變冷還是變暖，再走到你選的熱流按鈕旁按 E。',
+    choices: [
+      { label: '反應槽放熱', answer: decision('a-release') },
+      { label: '反應槽吸熱', answer: decision('a-absorb'), consequence: '吸熱時，槽會向水要熱，水應該變冷。這次水變暖了。' },
+    ],
   },
   'probe-samples': {
     mode: 'samples',
-    summary: '帶著探針走到 A、B、C、D 四瓶，按 E 量 pH 和導電度。收齊讀值後，前往水樣分析台回報。',
+    action: '把四瓶都量一次。在每瓶旁按 E。帶著讀值回水樣分析台。',
   },
   'wire-cell': {
     mode: 'battery',
-    summary: '到備料櫃拿鋅片、銅片與鹽橋，再裝到對應插槽。電表紅端在右、黑端在左，目標為接通鹽橋且讀值為正。',
+    action: '靠近零件按 E 拿取，再到插槽按 E 裝上。最後去看電表。',
   },
   'light-water-carbon': {
-    mode: 'controls',
-    summary: '走到燈、水、CO₂ 站按 E 切換設定，讓三個因子的支持速率都足夠。扣掉呼吸後需淨吸碳 ≥7 mmol CO₂/h，照明 ≤10 W，給水 ≤11 段。',
-    presets: { light: [2, 4, 5, 6], water: [5, 8, 10, 11, 12], carbon: [2, 3, 4] },
+    mode: 'controls', action: adjustDevice,
+    presets: { light: [1, 2, 3], water: [2, 4, 6] },
   },
   'carbon-budget': {
-    mode: 'controls',
-    summary: '大氣起始 60 kg C。本輪排放 26、既有植被吸收 11 kg C。走到兩台機器切換減排與復育。期末碳庫 ≤60 kg C，用水至少剩 3 m³。',
-    presets: { cut: [0, 8, 11, 12, 13], restore: [0, 2, 3, 4, 5] },
+    mode: 'controls', action: adjustDevice,
+    presets: { cut: [0, 1, 2, 3, 4], restore: [0, 1, 2, 3] },
   },
   'selection-evidence': {
     mode: 'survey',
-    summary: '走訪乾燥培養箱、潮濕培養箱與家系檔案。把不同環境和跨世代的證據帶回族群紀錄台。',
+    action: '去乾燥箱、潮濕箱和家系檔案旁按 E，讀完三份紀錄再回族群紀錄台。',
     readings: [
-      { label: '乾燥培養箱', result: '同樣從 20 隻親代起始，厚殼組有 36 隻成活後代，薄殼組有 12 隻。' },
-      { label: '潮濕培養箱', result: '厚殼組有 21 隻成活後代，薄殼組有 23 隻。乾燥時的優勢沒有出現在這裡。' },
-      { label: '家系檔案', result: '家系紀錄與共同環境觀察共同確認厚殼性狀有遺傳成分。' },
+      { label: '乾燥培養箱', result: '乾燥時，厚殼組留下 6 隻幼蟲，薄殼組留下 2 隻。', clue: '兩組一開始的親代一樣多。比留下的幼蟲，比較容易看出誰在這裡繁殖得多。' },
+      { label: '潮濕培養箱', result: '潮濕時，厚殼組留下 4 隻幼蟲，薄殼組留下 5 隻。', clue: '這一頁差點被漏掉。換了環境，乾季的結果就不一定會重演。' },
+      { label: '家系檔案', result: '親代的厚殼可以傳給後代。', clue: '把這頁和幼蟲數放在一起，就能解釋為什麼過幾代後，厚殼有可能變常見。' },
     ],
   },
   'final-dispatch': {
-    mode: 'controls',
-    summary: '走到處理、抽水、照明設備，分配 30 Wh。必須同時讓剩餘酸量為零、庫水 ≥6 m³、淨吸碳 ≥8 mmol CO₂/h。',
-    presets: { dose: [2, 3, 4, 5], pump: [2, 3, 4, 5], light: [3, 4, 5, 6] },
+    mode: 'controls', action: adjustDevice,
+    presets: { dose: [0, 1, 2, 3], pump: [0, 1, 2, 3], light: [0, 1, 2, 3] },
   },
 };
 
 export type Part = 'Zn' | 'Cu' | 'bridge';
 export type Socket = 'left' | 'right' | 'bridge';
 export const parts: Record<Part, string> = { Zn: '鋅片 Zn', Cu: '銅片 Cu', bridge: '鹽橋' };
-export const slots: Record<Socket, string> = { left: '黑端插槽', right: '紅端插槽', bridge: '鹽橋插座' };
+export const slots: Record<Socket, string> = { left: '左邊黑端', bridge: '中間鹽橋座', right: '右邊紅端' };
+export const partClues: Record<Part, string> = {
+  Zn: '鋅會把電子交出去，是這顆電池的負端。帶去左邊的黑色插槽。',
+  Cu: '這片銅是正端，溶液裡的銅離子會在這裡接到電子。帶去右邊的紅色插槽。',
+  bridge: '鹽橋讓水裡帶電的離子在兩杯之間移動。帶去中間的插座，電池才可以持續供電。',
+};
 
 export type FieldState = {
   puzzleId: string;
@@ -98,9 +104,7 @@ export function freshField(puzzle: Puzzle): FieldState {
     puzzleId: puzzle.id,
     scanned: [],
     operated: [],
-    controls: fieldTasks[puzzle.id]?.mode === 'timing'
-      ? Object.fromEntries(timingDials.map(dial => [dial.id, dial.values[0]]))
-      : puzzle.kind === 'panel' ? Object.fromEntries(puzzle.controls.map(control => [control.id, control.initial])) : {},
+    controls: puzzle.kind === 'panel' ? Object.fromEntries(puzzle.controls.map(control => [control.id, control.initial])) : {},
     carried: null,
     mounted: {},
   };
@@ -150,9 +154,7 @@ export function readField(raw: unknown, puzzle: Puzzle): FieldState | null {
   const scanned = task.mode === 'samples' && puzzle.kind === 'assay' ? puzzle.samples.map(sample => sample.id)
     : task.mode === 'survey' ? task.readings.map((_, index) => String(index)) : [];
   next.scanned = scanned.filter(id => Array.isArray(data.scanned) && data.scanned.includes(id));
-  const settings = task.mode === 'controls' ? task.presets
-    : task.mode === 'timing' ? Object.fromEntries(timingDials.map(dial => [dial.id, dial.values]))
-      : task.mode === 'heat' ? { A: [1, -1], B: [1, -1] } : {};
+  const settings = task.mode === 'controls' ? task.presets : {};
   for (const [key, values] of Object.entries(settings)) {
     const saved = data.controls?.[key];
     if (typeof saved === 'number' && values.includes(saved)) next.controls[key] = saved;

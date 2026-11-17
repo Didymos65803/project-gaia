@@ -62,6 +62,7 @@ export type Species = {
 
 export type BalancePuzzle = Brief & {
   kind: 'balance';
+  maximumCoefficient?: number;
   reactants: Species[];
   products: Species[];
 };
@@ -105,7 +106,7 @@ export type Control = {
 
 export type PanelModel =
   | { kind: 'neutralize'; acid: number; basePerDose: number }
-  | { kind: 'greenhouse'; respiration: number; lightFactor: number; waterFactor: number; carbonFactor: number; lampCost: number }
+  | { kind: 'greenhouse'; respiration: number; lightFactor: number; waterFactor: number; carbonSupport: number; lampCost: number }
   | { kind: 'carbon'; initial: number; emissions: number; existingUptake: number; waterSupply: number; waterPerUptake: number }
   | {
       kind: 'restart';

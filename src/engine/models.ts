@@ -17,12 +17,12 @@ function gcd(a: number, b: number): number {
   return a;
 }
 
-export function checkBalance(reactants: Species[], products: Species[], values: number[]) {
+export function checkBalance(reactants: Species[], products: Species[], values: number[], maximum = 12) {
   const left = atomCounts(reactants, values.slice(0, reactants.length));
   const right = atomCounts(products, values.slice(reactants.length));
   const elements = [...new Set([...Object.keys(left), ...Object.keys(right)])];
   const valid = values.length === reactants.length + products.length &&
-    values.every(value => Number.isInteger(value) && value >= 1 && value <= 12);
+    values.every(value => Number.isInteger(value) && value >= 1 && value <= maximum);
   return {
     valid,
     balanced: valid && elements.every(element => (left[element] ?? 0) === (right[element] ?? 0)),
@@ -47,7 +47,7 @@ export function panelReadings(model: PanelModel, settings: Record<string, number
       const gross = Math.min(
         settings.light * model.lightFactor,
         settings.water * model.waterFactor,
-        settings.carbon * model.carbonFactor,
+        model.carbonSupport,
       );
       return { gross, net: gross - model.respiration, power: settings.light * model.lampCost, water: settings.water };
     }

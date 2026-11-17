@@ -39,17 +39,16 @@ export function evaluate(puzzle: Puzzle, answer: Answer): Feedback {
       if (answer.kind === 'graph') {
         const details = checkFields(puzzle.fields, answer.values);
         if (answer.x !== puzzle.graph.answerX) {
-          details.unshift(answer.x === null
-            ? '請先在圖上或資料表選取一個測量點。'
-            : '選到的測量點不符合條件。由最左邊的點開始，確認是哪個點最先通過門檻。');
+          if (answer.x === null) details.unshift('先點圖上的一個圓點，或在資料表選一列。');
+          return fail(details);
         }
         return finish(details);
       }
       break;
     case 'balance':
       if (answer.kind === 'balance') {
-        const balance = checkBalance(puzzle.reactants, puzzle.products, answer.coefficients);
-        if (!balance.valid) return fail(['每個係數應是 1 到 12 的整數。']);
+        const balance = checkBalance(puzzle.reactants, puzzle.products, answer.coefficients, puzzle.maximumCoefficient);
+        if (!balance.valid) return fail([`每個數字要從 1 到 ${puzzle.maximumCoefficient ?? 12} 選。`]);
         if (!balance.balanced) return fail(balance.atoms
           .filter(atom => atom.left !== atom.right)
           .map(atom => `${atom.element}：左側有 ${atom.left} 個，右側有 ${atom.right} 個。`));

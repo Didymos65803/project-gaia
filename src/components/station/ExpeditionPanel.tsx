@@ -3,6 +3,7 @@ import { batteryAnswer, parts, sampleReadings } from '../../data/field';
 import type { FieldState, FieldTask } from '../../data/field';
 import { roomData } from '../../data/station';
 import type { Chapter, Puzzle } from '../../data/types';
+import { meetsTarget } from '../../engine/evaluate';
 import type { Expedition } from '../../engine/expedition';
 import { door, halls, sectors } from '../../engine/map';
 import type { Point } from '../../engine/map';
@@ -38,18 +39,22 @@ export function Minimap({ open, expedition, activeId, location }: { open: string
 }
 
 function FieldReadings({ field, puzzle, task }: { field: FieldState; puzzle: Puzzle; task: FieldTask }) {
-  if (task.mode === 'timing') {
-    const { coefficient, exponent, micros } = field.controls;
-    return <dl className="live-readings">
-      <div><dt>封包秒數</dt><dd>{Number((coefficient * 10 ** exponent).toPrecision(5))}<small>s</small></dd></div>
-      <div><dt>備援微秒計</dt><dd>{micros}<small>μs</small></dd></div>
-    </dl>;
-  }
   if (task.mode === 'controls' && puzzle.kind === 'panel') {
     const readings = panelReadings(puzzle.model, field.controls);
-    return <dl className="live-readings">{puzzle.metrics.map(metric => (
-      <div key={metric.id}><dt>{metric.label}</dt><dd>{Number(readings[metric.id].toFixed(3))} <small>{metric.unit}</small></dd></div>
-    ))}</dl>;
+    return <dl className="live-readings">{puzzle.metrics.map(metric => {
+      const objective = metric.min === metric.max ? `正好 ${metric.min}`
+        : metric.min !== undefined ? `至少 ${metric.min}` : `最多 ${metric.max}`;
+      const passes = meetsTarget(metric, readings[metric.id]);
+      return (
+        <div key={metric.id} className={passes ? 'reading-met' : ''}>
+          <dt>{metric.label}</dt>
+          <dd>{Number(readings[metric.id].toFixed(3))} <small>{metric.unit}</small></dd>
+          {(metric.min !== undefined || metric.max !== undefined) && (
+            <dd className="reading-goal">{passes ? '✓ 已達標' : `目標 ${objective}`}</dd>
+          )}
+        </div>
+      );
+    })}</dl>;
   }
   if (task.mode === 'battery' && puzzle.kind === 'circuit') {
     const voltage = readCell(batteryAnswer(field).cell, puzzle.voltage);
@@ -70,17 +75,18 @@ function FieldReadings({ field, puzzle, task }: { field: FieldState; puzzle: Puz
   return null;
 }
 
-export function ExpeditionPanel({ active, objective, guide, task, puzzle, field, hints, devices, message, onWalk, onHint, onDismiss }: {
+export function ExpeditionPanel({ active, objective, guide, task, puzzle, field, hints, devices, message, onWalk, onHint, onAreaStory, onDismiss }: {
   active?: Chapter;
   objective: string;
-  guide?: Target;
+  guide?: Pick<Target, 'label' | 'approach'>;
   task?: FieldTask;
   puzzle?: Puzzle;
   field?: FieldState;
   hints: number;
   devices: Target[];
   message: FieldMessage | null;
-  onWalk: (target: Target) => void;
+  onWalk: (target: Pick<Target, 'label' | 'approach'>) => void;
+  onAreaStory?: () => void;
   onHint: (puzzle: Puzzle) => void;
   onDismiss: () => void;
 }) {
@@ -92,19 +98,21 @@ export function ExpeditionPanel({ active, objective, guide, task, puzzle, field,
       {active && <p className="quest-location">{roomData[active.id].name}</p>}
       {task && puzzle && field && (
         <>
-          <p className="field-summary">{task.summary}</p>
-          <FieldReadings field={field} puzzle={puzzle} task={task}/>
-          {(task.mode === 'controls' || task.mode === 'heat') && (
-            <details className="quest-details">
-              <summary>查看操作規則</summary>
-              {puzzle.prompt.map(line => <p key={line}>{line}</p>)}
-            </details>
+          {(task.mode !== 'survey' || task.readings.length === field.scanned.length) && (
+            <div className="field-summary">
+              {puzzle.prompt.map((line, index) => (
+                <p key={line} className={index === puzzle.prompt.length - 1 ? 'field-question' : undefined}>{line}</p>
+              ))}
+            </div>
           )}
+          <p className="field-action">{task.action}</p>
+          <FieldReadings field={field} puzzle={puzzle} task={task}/>
           {hints > 0 && <ol className="quest-hints">{puzzle.hints.slice(0, hints).map(hint => <li key={hint}>{hint}</li>)}</ol>}
         </>
       )}
       <div className="quest-controls">
         {guide && <button type="button" className="button seek-button" aria-label={`帶路到${guide.label}`} onClick={() => onWalk(guide)}><Icon name="arrow" size={17}/> 帶路</button>}
+        {onAreaStory && <button type="button" className="button seek-button" onClick={onAreaStory}><Icon name="notebook" size={16}/> 區域故事</button>}
         {task && puzzle && hints < puzzle.hints.length && <button type="button" className="button seek-button" onClick={() => onHint(puzzle)}>
           <Icon name="hint" size={16}/>{hints ? '下一則提示' : '提示'}
         </button>}

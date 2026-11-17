@@ -439,3 +439,5 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--mint); width: 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0s !important; }
 }
+
+.plot-guide { stroke: #efd48c; stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }

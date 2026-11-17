@@ -48,26 +48,29 @@ test('numeric input handles decimal and full-width signs and rejects invalid not
     assert.equal(parseNumber(invalid), null, invalid);
   }
   const puzzle = byId['packet-time'];
-  assert.equal(evaluate(puzzle, { kind: 'numeric', values: ['7.2001', '−５', '7.2e1'] }).correct, true);
-  const wrong = evaluate(puzzle, { kind: 'numeric', values: ['7.20011', '5', '72 μs'] });
-  assert.equal(wrong.correct, false);
-  assert.equal(wrong.details.length, 3);
+  assert.equal(evaluate(puzzle, { kind: 'numeric', values: ['３'] }).correct, true);
+  assert.equal(evaluate(puzzle, { kind: 'numeric', values: ['3.1'] }).correct, false);
+  const withTolerance = { ...puzzle, fields: [{ ...puzzle.fields[0], tolerance: 0.1 }] };
+  assert.equal(evaluate(withTolerance, { kind: 'numeric', values: ['3.1'] }).correct, true);
+  assert.equal(evaluate(withTolerance, { kind: 'numeric', values: ['3.11'] }).correct, false);
 });
 
-test('graph questions need both the correct sampled point and the calculations', () => {
+test('graphs validate the selected point and any extra numeric fields', () => {
   const puzzle = byId['calibration-line'];
   const solved = solutions[puzzle.id];
   assert.equal(evaluate(puzzle, { ...solved, x: null }).correct, false);
   assert.equal(evaluate(puzzle, { ...solved, x: 8 }).correct, false);
-  assert.equal(evaluate(puzzle, { ...solved, values: ['4', '2', '9'] }).correct, false);
+  assert.equal(evaluate(puzzle, solved).correct, true);
+  const withField = { ...puzzle, fields: [{ label: '數值', unit: 'mA', answer: 4 }] };
+  assert.equal(evaluate(withField, { ...solved, values: ['9'] }).correct, false);
 });
 
 test('chemical balance tests the conservation of each element and lowest integer ratio', () => {
   const puzzle = byId['balance-methane'];
   const keyed = [...puzzle.reactants, ...puzzle.products].map(item => item.coefficient);
   const { atoms } = checkBalance(puzzle.reactants, puzzle.products, keyed);
-  assert.deepEqual(atoms, [{ element: 'C', left: 1, right: 1 }, { element: 'H', left: 4, right: 4 }, { element: 'O', left: 4, right: 4 }]);
-  for (const coefficients of [[1, 1, 1, 2], [0, 0, 0, 0], [1, 2, 1, 1.9], [2, 4, 2, 4], [1, 2, 1]]) {
+  assert.deepEqual(atoms, [{ element: 'H', left: 4, right: 4 }, { element: 'O', left: 2, right: 2 }]);
+  for (const coefficients of [[1, 1, 2], [0, 0, 0], [2, 1, 1.9], [4, 2, 4], [2, 1]]) {
     const feedback = evaluate(puzzle, { kind: 'balance', coefficients });
     assert.equal(feedback.correct, false);
     assert.ok(feedback.details.length > 0);
@@ -78,15 +81,15 @@ test('assay requires independently collecting four readings before classifying',
   const puzzle = byId['probe-samples'];
   const response = solutions[puzzle.id];
   assert.equal(evaluate(puzzle, { ...response, inspected: ['a', 'b'] }).correct, false);
-  assert.equal(evaluate(puzzle, { ...response, selections: ['b', 'd', 'c', 'a'] }).correct, false);
+  assert.equal(evaluate(puzzle, { ...response, selections: ['b', 'c'] }).correct, false);
 });
 
 test('decision feedback names the rejected scientific inference', () => {
   const puzzle = byId['selection-evidence'];
-  const wrong = evaluate(puzzle, { kind: 'decision', selected: ['heritability', 'superior'] });
+  const wrong = evaluate(puzzle, { kind: 'decision', selected: ['thin'] });
   assert.equal(wrong.correct, false);
   assert.match(wrong.details[0], /潮濕/);
-  assert.match(evaluate(puzzle, { kind: 'decision', selected: ['adapted'] }).details[0], /2 項/);
+  assert.match(evaluate(puzzle, { kind: 'decision', selected: ['adapted', 'thin'] }).details[0], /1 項/);
 });
 
 test('galvanic meter models orientation, removal of salt bridge and identical electrodes', () => {
@@ -102,31 +105,32 @@ test('galvanic meter models orientation, removal of salt bridge and identical el
 
 test('simulation accounts for resources independently and honors lower or upper limits', () => {
   const neutralize = byId['neutralize-tank'];
-  assert.deepEqual(panelReadings(neutralize.model, { dose: 5 }), { acidLeft: 3 });
-  assert.deepEqual(panelReadings(neutralize.model, { dose: 7 }), { acidLeft: -3 });
+  assert.deepEqual(panelReadings(neutralize.model, { dose: 2 }), { acidLeft: 2 });
+  assert.deepEqual(panelReadings(neutralize.model, { dose: 4 }), { acidLeft: -2 });
   const greenhouse = byId['light-water-carbon'];
-  assert.deepEqual(panelReadings(greenhouse.model, { light: 5, water: 10, carbon: 3 }), { gross: 9, net: 6, power: 10, water: 10 });
-  assert.equal(evaluate(greenhouse, { kind: 'panel', values: { light: 5, water: 11, carbon: 4 } }).correct, true);
-  assert.equal(evaluate(greenhouse, { kind: 'panel', values: { light: 6, water: 11, carbon: 4 } }).correct, false);
+  assert.deepEqual(panelReadings(greenhouse.model, { light: 2, water: 2 }), { gross: 2, net: 1, power: 4, water: 2 });
+  assert.equal(evaluate(greenhouse, { kind: 'panel', values: { light: 2, water: 4 } }).correct, true);
+  assert.equal(evaluate(greenhouse, { kind: 'panel', values: { light: 3, water: 6 } }).correct, false);
   const carbon = byId['carbon-budget'];
-  assert.deepEqual(panelReadings(carbon.model, { cut: 13, restore: 5 }), { carbon: 57, waterLeft: 0 });
-  assert.equal(evaluate(carbon, { kind: 'panel', values: { cut: 13, restore: 5 } }).correct, false);
-  assert.equal(evaluate(carbon, { kind: 'panel', values: { cut: 15, restore: 0 } }).correct, false);
+  assert.deepEqual(panelReadings(carbon.model, { cut: 4, restore: 3 }), { carbon: 18, waterLeft: 0 });
+  assert.equal(evaluate(carbon, { kind: 'panel', values: { cut: 4, restore: 3 } }).correct, false);
+  assert.equal(evaluate(carbon, { kind: 'panel', values: { cut: 4, restore: 1 } }).correct, true);
+  assert.equal(evaluate(carbon, { kind: 'panel', values: { cut: 5, restore: 0 } }).correct, false);
 });
 
 test('final dispatch has one feasible configuration across the full control space', () => {
   const puzzle = byId['final-dispatch'];
   const passing = [];
-  for (let dose = 0; dose <= 6; dose++) {
-    for (let pump = 0; pump <= 6; pump++) {
-      for (let light = 0; light <= 8; light++) {
+  for (let dose = 0; dose <= 3; dose++) {
+    for (let pump = 0; pump <= 3; pump++) {
+      for (let light = 0; light <= 3; light++) {
         const values = { dose, pump, light };
         if (evaluate(puzzle, { kind: 'panel', values }).correct) passing.push(values);
       }
     }
   }
-  assert.deepEqual(passing, [{ dose: 4, pump: 4, light: 5 }]);
-  assert.deepEqual(panelReadings(puzzle.model, passing[0]), { acidLeft: 0, waterLeft: 6, net: 8, energy: 30 });
+  assert.deepEqual(passing, [{ dose: 2, pump: 2, light: 2 }]);
+  assert.deepEqual(panelReadings(puzzle.model, passing[0]), { acidLeft: 0, waterLeft: 4, net: 3, energy: 6 });
 });
 
 test('progress advances in order, isolates wrong attempts and preserves completed proofs after replay', () => {

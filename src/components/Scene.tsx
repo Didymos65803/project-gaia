@@ -72,9 +72,9 @@ export function Report({ chapters, finale, progress, onMap, onNotebook }: {
       <section className="report-body" aria-labelledby="evidence-review">
         <h2 id="evidence-review">事故紀錄</h2>
         <ol>
-          <li><strong>05:40 · 資料同步中斷</strong><p>封包遺失校正標籤。獨立複測確認讀值 28 格代表 12 mA，低於 15 mA 的門檻。</p></li>
-          <li><strong>05:42 · 誤觸供電隔離</strong><p>溫室補光停止，光合吸碳下降。呼吸仍可釋出 CO₂。局部實測的酸水則依酸當量獨立處理。</p></li>
-          <li><strong>復電 · 分區驗收</strong><p>逐區核對單位與時序，驗證水、碳與能量收支。族群資料依乾濕條件各自比較，保留異常與雨後樣本。</p></li>
+          <li><strong>05:40 · 資料同步中斷</strong><p>紀錄丟了單位。隔了一分鐘，控制器把 14 格當成 14 mA，實際卻只有 5 mA，低於 8 mA 的停電門檻。</p></li>
+          <li><strong>05:42 · 誤觸供電隔離</strong><p>控制器誤以為電流太大，切掉了電。溫室失去照明，小苗開始淨釋出 CO₂。回收槽的酸水則由周博士另外取樣處理。</p></li>
+          <li><strong>復電 · 分區驗收</strong><p>核對每一區的新資料，再依序開電。乾季與雨後的甲蟲紀錄都留了下來。</p></li>
         </ol>
         <div className="report-actions">
           <button type="button" className="button primary" onClick={onNotebook}><Icon name="notebook" />開啟科學筆記</button>
