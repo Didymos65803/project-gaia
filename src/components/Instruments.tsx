@@ -4,6 +4,7 @@ import type { Answer, AssayPuzzle, BalancePuzzle, CellAnswer, CircuitPuzzle, Dec
 import { meetsTarget } from '../engine/evaluate';
 import { checkBalance, panelReadings, readCell } from '../engine/models';
 import { Icon } from './Icon';
+import { ForestComparison, RadiationDiagram } from './ClimateInstruments';
 
 export const instrumentNames: Record<Puzzle['kind'], string> = {
   numeric: '數值校驗',
@@ -20,10 +21,18 @@ export function initialAnswer(puzzle: Puzzle): Answer {
     case 'numeric': return { kind: 'numeric', values: puzzle.fields.map(() => '') };
     case 'graph': return { kind: 'graph', values: puzzle.fields.map(() => ''), x: null };
     case 'balance': return { kind: 'balance', coefficients: [...puzzle.reactants, ...puzzle.products].map(() => 1) };
-    case 'decision': return { kind: 'decision', selected: [] };
+    case 'decision':
+      return puzzle.forestMonths
+        ? { kind: 'decision', selected: [], observedMonths: [puzzle.forestMonths[0].id] }
+        : { kind: 'decision', selected: [] };
     case 'assay': return { kind: 'assay', inspected: [], selections: puzzle.targets.map(() => '') };
     case 'circuit': return { kind: 'circuit', cell: { left: '', right: '', bridge: false } };
-    case 'panel': return { kind: 'panel', values: Object.fromEntries(puzzle.controls.map(control => [control.id, control.initial])) };
+    case 'panel': {
+      const values = Object.fromEntries(puzzle.controls.map(control => [control.id, control.initial]));
+      return puzzle.fields
+        ? { kind: 'panel', values, entries: puzzle.fields.map(() => '') }
+        : { kind: 'panel', values };
+    }
   }
 }
 
@@ -275,6 +284,7 @@ function ControlPanel({ puzzle, values, onChange }: { puzzle: PanelPuzzle; value
   return (
     <div className="instrument">
       <div className="instrument-heading"><Icon name="settings" /><h3>即時模擬</h3></div>
+      {puzzle.model.kind === 'radiation' && <RadiationDiagram incoming={puzzle.model.incoming} reflected={values.reflected} infrared={values.infrared} />}
       <div className="panel-layout">
         <div className="panel-controls">
           {puzzle.controls.map(control => {
@@ -332,7 +342,13 @@ export function Instrument({ puzzle, answer, onChange, fieldSamples = false }: {
     return <Balancer puzzle={puzzle} values={answer.coefficients} onChange={coefficients => onChange({ ...answer, coefficients })} />;
   }
   if (puzzle.kind === 'decision' && answer.kind === 'decision') {
-    return <Decisions puzzle={puzzle} selected={answer.selected} onChange={selected => onChange({ ...answer, selected })} />;
+    return <>
+      {puzzle.forestMonths && (
+        <ForestComparison months={puzzle.forestMonths} observed={answer.observedMonths ?? []}
+          onSelect={id => onChange({ ...answer, observedMonths: [...(answer.observedMonths ?? []).filter(month => month !== id), id] })} />
+      )}
+      <Decisions puzzle={puzzle} selected={answer.selected} onChange={selected => onChange({ ...answer, selected })} />
+    </>;
   }
   if (puzzle.kind === 'assay' && answer.kind === 'assay') {
     return <Assay puzzle={puzzle} answer={answer} onChange={onChange} fieldSamples={fieldSamples} />;
@@ -341,7 +357,12 @@ export function Instrument({ puzzle, answer, onChange, fieldSamples = false }: {
     return <Circuit puzzle={puzzle} cell={answer.cell} onChange={cell => onChange({ ...answer, cell })} />;
   }
   if (puzzle.kind === 'panel' && answer.kind === 'panel') {
-    return <ControlPanel puzzle={puzzle} values={answer.values} onChange={values => onChange({ ...answer, values })} />;
+    return <>
+      <ControlPanel puzzle={puzzle} values={answer.values} onChange={values => onChange({ ...answer, values })} />
+      {puzzle.fields && (
+        <NumberInputs fields={puzzle.fields} values={answer.entries ?? []} onChange={entries => onChange({ ...answer, entries })} />
+      )}
+    </>;
   }
   return null;
 }

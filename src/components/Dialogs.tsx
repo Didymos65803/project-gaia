@@ -46,7 +46,8 @@ export function Notebook({ sections, selectedId, progress, archives, onNote, onC
 }) {
   const [sectionId, setSectionId] = useState(selectedId ?? sections.find(section => countSolved(progress, section) > 0)?.id ?? sections[0].id);
   const section = sections.find(item => item.id === sectionId) ?? sections[0];
-  const evidence = section.puzzles.filter(puzzle => puzzleLog(progress, puzzle.id).solved).map(puzzle => puzzle.evidence);
+  const evidence = [...section.puzzles, ...(section.optionalPuzzles ?? []).map(activity => activity.puzzle)]
+    .filter(puzzle => puzzleLog(progress, puzzle.id).solved).map(puzzle => puzzle.evidence);
   return (
     <WindowDialog title="科學筆記" icon="notebook" onClose={onClose}>
       {() => (
@@ -66,7 +67,7 @@ export function Notebook({ sections, selectedId, progress, archives, onNote, onC
               </ol>
             ) : <p className="empty-note">完成這個區域的第一步後，這裡會出現已核對的證據。</p>}
             {archives[section.id] && <div className="lab-question"><Icon name="radio" size={19} /><p><strong>{archives[section.id].title}</strong><br />{archives[section.id].detail}</p></div>}
-            {evidence.length === section.puzzles.length && <div className="lab-question"><Icon name="hint" size={19} /><p>{section.labQuestion}</p></div>}
+            {countSolved(progress, section) === section.puzzles.length && <div className="lab-question"><Icon name="hint" size={19} /><p>{section.labQuestion}</p></div>}
             <label className="field field-note">
               <span>我的算式與觀察</span>
               <textarea maxLength={1200} rows={4} value={progress.notes[section.id] ?? ''} onChange={event => onNote(section.id, event.target.value)}

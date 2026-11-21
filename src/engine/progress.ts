@@ -79,7 +79,7 @@ export function decodeProgress(raw: string | null, sections: Chapter[], validLoc
   for (const section of sections) {
     const note = isRecord(data.notes) ? data.notes[section.id] : undefined;
     if (typeof note === 'string') clean.notes[section.id] = note.slice(0, 1200);
-    for (const puzzle of section.puzzles) {
+    for (const puzzle of [...section.puzzles, ...(section.optionalPuzzles ?? []).map(activity => activity.puzzle)]) {
       const log = isRecord(data.puzzles) ? data.puzzles[puzzle.id] : undefined;
       if (!isRecord(log)) continue;
       clean.puzzles[puzzle.id] = {

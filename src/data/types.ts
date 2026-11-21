@@ -76,8 +76,19 @@ type DecisionOption = {
   consequence: string;
 };
 
+export type ForestMonth = {
+  id: string;
+  label: string;
+  rain: number;
+  evapotranspiration: number;
+  runoff: number;
+  uptake: number;
+  release: number;
+};
+
 export type DecisionPuzzle = Brief & {
   kind: 'decision';
+  forestMonths?: [ForestMonth, ...ForestMonth[]];
   select: number;
   options: DecisionOption[];
 };
@@ -109,6 +120,7 @@ export type PanelModel =
   | { kind: 'neutralize'; acid: number; basePerDose: number }
   | { kind: 'greenhouse'; respiration: number; lightFactor: number; waterFactor: number; carbonSupport: number; lampCost: number }
   | { kind: 'carbon'; initial: number; emissions: number; existingUptake: number; waterSupply: number; waterPerUptake: number }
+  | { kind: 'radiation'; incoming: number }
   | {
       kind: 'restart';
       acid: number;
@@ -130,6 +142,7 @@ export type PanelPuzzle = Brief & {
   model: PanelModel;
   controls: Control[];
   metrics: Metric[];
+  fields?: NumberField[];
 };
 
 export type Puzzle = NumericPuzzle | GraphPuzzle | BalancePuzzle | DecisionPuzzle | AssayPuzzle | CircuitPuzzle | PanelPuzzle;
@@ -147,6 +160,7 @@ export type Chapter = {
   resolution: string;
   labQuestion: string;
   puzzles: Puzzle[];
+  optionalPuzzles?: { device: string; puzzle: Puzzle }[];
 };
 
 export type CellAnswer = { left: string; right: string; bridge: boolean };
@@ -155,9 +169,9 @@ export type Answer =
   | { kind: 'numeric'; values: string[] }
   | { kind: 'graph'; values: string[]; x: number | null }
   | { kind: 'balance'; coefficients: number[] }
-  | { kind: 'decision'; selected: string[] }
+  | { kind: 'decision'; selected: string[]; observedMonths?: string[] }
   | { kind: 'assay'; inspected: string[]; selections: string[] }
   | { kind: 'circuit'; cell: CellAnswer }
-  | { kind: 'panel'; values: Record<string, number> };
+  | { kind: 'panel'; values: Record<string, number>; entries?: string[] };
 
 export type Feedback = { correct: boolean; message: string; details: string[] };

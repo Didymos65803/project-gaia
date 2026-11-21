@@ -4,7 +4,7 @@ import { chapters } from '../src/data/chapters.ts';
 import { finale } from '../src/data/finale.ts';
 import { teacherConfig } from '../src/data/settings.ts';
 import { evaluate, parseNumber } from '../src/engine/evaluate.ts';
-import { checkBalance, panelReadings, readCell } from '../src/engine/models.ts';
+import { checkBalance, forestBudget, panelReadings, readCell } from '../src/engine/models.ts';
 import { chapterStatus, countSolved, currentPuzzle, decodeProgress, freshProgress, puzzleIsOpen, puzzleLog, recordAttempt, recordHint } from '../src/engine/progress.ts';
 import { solutions } from './solutions.mjs';
 
@@ -186,4 +186,30 @@ test('save restore tolerates tampering, retains valid notes and locks and leaves
   assert.deepEqual(clean.notes, { gateway: '觀察' });
   assert.equal(chapterStatus(clean, chapters, 'evolution', []), 'course');
   assert.deepEqual(freshProgress(clean.localLocks), { version: 1, puzzles: {}, notes: {}, localLocks: ['evolution'] });
+});
+
+test('radiation extension balances fluxes and checks accumulated energy separately', () => {
+  const climate = chapters.find(chapter => chapter.id === 'climate');
+  const [solar, forest] = climate.optionalPuzzles.map(activity => activity.puzzle);
+  assert.deepEqual(panelReadings(solar.model, { reflected: 100, infrared: 240 }), { absorbed: 240, net: 0 });
+  assert.deepEqual(panelReadings(solar.model, { reflected: 100, infrared: 237 }), { absorbed: 240, net: 3 });
+  assert.equal(panelReadings(solar.model, { reflected: 110, infrared: 240 }).net, -10);
+  const correct = { kind: 'panel', values: { reflected: 100, infrared: 237 }, entries: ['300'] };
+  assert.equal(evaluate(solar, correct).correct, true);
+  assert.equal(evaluate(solar, { ...correct, entries: ['3'] }).correct, false);
+  assert.equal(evaluate(solar, { ...correct, values: { reflected: 97, infrared: 240 } }).correct, false);
+  assert.equal(evaluate(forest, { kind: 'decision', selected: ['stored-water', 'stomata'], observedMonths: ['normal'] }).correct, false);
+});
+
+test('forest extension compares water and carbon over the same month and saves completed evidence', () => {
+  const climate = chapters.find(chapter => chapter.id === 'climate');
+  const forest = climate.optionalPuzzles[1].puzzle;
+  assert.deepEqual(forest.forestMonths.map(forestBudget), [{ water: 5, carbon: 0.6 }, { water: -27, carbon: -0.4 }]);
+  const answer = { kind: 'decision', selected: ['stored-water', 'stomata'], observedMonths: ['normal', 'dry'] };
+  assert.equal(evaluate(forest, answer).correct, true);
+  assert.equal(evaluate(forest, { ...answer, selected: ['stored-water', 'less-respiration'] }).correct, false);
+  const progress = recordAttempt(freshProgress(), forest, true);
+  const loaded = decodeProgress(JSON.stringify(progress), sections, ids);
+  assert.equal(puzzleLog(loaded, forest.id).solved, true);
+  assert.equal(countSolved(loaded, climate), 0);
 });

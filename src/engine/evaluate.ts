@@ -57,6 +57,9 @@ export function evaluate(puzzle: Puzzle, answer: Answer): Feedback {
       break;
     case 'decision':
       if (answer.kind === 'decision') {
+        if (puzzle.forestMonths?.some(month => !answer.observedMonths?.includes(month.id))) {
+          return fail(['先打開一般月和暖乾月，看看兩組收支。']);
+        }
         const selected = new Set(answer.selected);
         const choices = puzzle.options.filter(option => selected.has(option.id));
         if (selected.size !== puzzle.select || choices.length !== puzzle.select) {
@@ -99,7 +102,10 @@ export function evaluate(puzzle: Puzzle, answer: Answer): Feedback {
           }
         }
         const readings = panelReadings(puzzle.model, answer.values);
-        return finish(puzzle.metrics.filter(metric => !meetsTarget(metric, readings[metric.id])).map(metric => metric.retry));
+        return finish([
+          ...puzzle.metrics.filter(metric => !meetsTarget(metric, readings[metric.id])).map(metric => metric.retry),
+          ...checkFields(puzzle.fields ?? [], answer.entries ?? []),
+        ]);
       }
       break;
   }

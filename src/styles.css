@@ -443,3 +443,40 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--mint); width: 
 }
 
 .plot-guide { stroke: #efd48c; stroke-width: 1.5; stroke-dasharray: 4 4; fill: none; }
+
+.radiation-diagram {
+  display: grid;
+  grid-template-columns: minmax(44px, 1fr) minmax(0, 3.5fr) minmax(44px, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 14px;
+  padding: 12px 8px;
+  border: 1px solid #344c64;
+  border-radius: 7px;
+  background: #0b1527;
+}
+.radiation-space { display: grid; justify-items: center; gap: 6px; color: var(--soft); font-size: .82rem; }
+.radiation-space > span:first-child { display: block; width: min(100%, 72px); aspect-ratio: 1; border-radius: 50%; }
+.radiation-sun { background: radial-gradient(circle at 35% 35%, #fff2b1, #f5b449 70%, #de782e); box-shadow: 0 0 18px #f2aa4855; }
+.radiation-earth { background: #326887 url('./assets/earth-epic.webp') center / cover; border: 1px solid #5b96ba; }
+.radiation-arrows { list-style: none; padding: 0; display: grid; gap: 8px; font-size: .76rem; text-align: center; }
+.radiation-arrows span { display: block; color: var(--soft); }
+.radiation-arrows strong { white-space: nowrap; color: var(--ink); }
+.radiation-arrows i { display: block; height: var(--arrow-height); margin-top: 2px; background: #f9d782; clip-path: polygon(0 30%, calc(100% - 8px) 30%, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, calc(100% - 8px) 70%, 0 70%); }
+.radiation-arrows .reflected i { background: #a5ceff; transform: scaleX(-1); }
+.radiation-arrows .infrared i { background: #f19d9d; transform: scaleX(-1); }
+
+.forest-budgets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 9px; }
+.forest-budgets > div { display: grid; align-content: start; padding: 9px; border: 1px solid #416176; border-radius: 6px; background: #14283b; }
+.forest-budgets > .forest-carbon { border-color: #4e705f; background: #182d2b; }
+.forest-budgets h3 { font-size: .92rem; color: #bae9ff; }
+.forest-carbon h3 { color: #bdefcf; }
+.forest-flow { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; padding: 4px 0; font-size: .81rem; border-bottom: 1px solid #6c92ae39; }
+.forest-flow small { display: block; color: var(--soft); }
+.forest-flow dd { margin: 0; text-align: right; white-space: nowrap; }
+.forest-budgets p { margin-top: 7px; font-size: .83rem; }
+.forest-budgets strong { color: var(--mint); white-space: nowrap; }
+.forest-units { margin-top: 8px; color: var(--soft); font-size: .77rem; }
+@media (max-width: 550px) {
+  .forest-budgets { grid-template-columns: minmax(0, 1fr); }
+}

@@ -54,6 +54,13 @@ export function createTargets(
   add('brief', chapter.character.name, '交談', place(67, 192), chapter.character.initials === 'G' ? 'robot' : 'crew', { type: 'brief' });
   if (!expedition.archives.includes(chapter.id)) add('archive', info.record.name, '拾取線索', place(40, 98), 'record', { type: 'read' });
 
+  if (briefed || expedition.powered.includes(chapter.id)) {
+    for (const [index, { device, puzzle }] of (chapter.optionalPuzzles ?? []).entries()) {
+      const point = index === 0 ? place(155, 205) : place(326, 107);
+      add(puzzle.id, device, '延伸任務', point, 'terminal', { type: 'bench', puzzle });
+    }
+  }
+
   if (expedition.powered.includes(chapter.id)) {
     for (const [index, puzzle] of chapter.puzzles.entries()) {
       add(puzzle.id, info.devices[index], '回顧設備', place(115 + index * 65, 113), 'terminal', { type: 'bench', puzzle });

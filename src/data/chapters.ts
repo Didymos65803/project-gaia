@@ -1,3 +1,4 @@
+import { climateActivities } from './climate.ts';
 import type { Chapter } from './types.ts';
 
 const gaia = { name: 'GAIA', role: '研究站的備援機器人', initials: 'G' };
@@ -295,6 +296,7 @@ export const chapters: Chapter[] = [
   },
   {
     id: 'climate', title: '地球氣候控制室', area: '氣候控制室', subject: '碳、水與收進和送出的熱', accent: 'cyan', icon: 'cloud', minutes: '8–13',
+    optionalPuzzles: climateActivities,
     character: biologist,
     briefing: '先看大氣裡的碳。有多出來的 5 格要處理，手上卻只有 3 桶水。去調減排和種植物的機器，至少留 1 桶水。',
     resolution: '水量、碳量和熱量都對上了。再看甲蟲報告的右上角，竟然寫著「雨後資料缺頁」。我們去找原本的觀察本。',

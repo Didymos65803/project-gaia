@@ -129,7 +129,7 @@ export const roomData: Record<string, StationRoom> = {
     conversation: [
       { speaker: 'npc', text: '把碳當成記在一本帳上。排放把碳加進大氣，植物會從大氣把一部分吸走。' },
       { speaker: 'player', text: '如果一直種植物，就能把多出來的全部吸掉嗎？' },
-      { speaker: 'npc', text: '還得給植物水。今天的水也有上限，所以要一邊少排，一邊用手上的水讓植物多吸一點。' },
+      { speaker: 'npc', text: '還得給植物水。今天的水也有上限，所以要一邊少排，一邊用手上的水讓植物多吸一點。想再試試，可以到兩座延伸台調地球的輻射設定，或比較森林在一般月和暖乾月的收支。' },
     ],
     record: {
       name: '太空測熱備註',

@@ -1,4 +1,11 @@
-import type { CellAnswer, PanelModel, Species } from '../data/types.ts';
+import type { CellAnswer, ForestMonth, PanelModel, Species } from '../data/types.ts';
+
+export function forestBudget(month: ForestMonth) {
+  return {
+    water: month.rain - month.evapotranspiration - month.runoff,
+    carbon: Math.round((month.uptake - month.release) * 10) / 10,
+  };
+}
 
 export function atomCounts(species: Species[], coefficients: number[]): Record<string, number> {
   const totals: Record<string, number> = {};
@@ -56,6 +63,10 @@ export function panelReadings(model: PanelModel, settings: Record<string, number
         carbon: model.initial + model.emissions - settings.cut - model.existingUptake - settings.restore,
         waterLeft: model.waterSupply - settings.restore * model.waterPerUptake,
       };
+    case 'radiation': {
+      const absorbed = model.incoming - settings.reflected;
+      return { absorbed, net: absorbed - settings.infrared };
+    }
     case 'restart': {
       const waterUsed = settings.pump * model.waterPerBatch;
       const gross = Math.min(settings.light * model.lampFactor, settings.pump * model.waterFactor);
